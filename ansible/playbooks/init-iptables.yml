@@ -1,0 +1,63 @@
+---
+- name: initialize iptables
+  hosts: all
+  tasks:
+    - name: allow lo INPUT
+      iptables:
+        action: insert
+        rule_num: 1
+        chain: INPUT
+        in_interface: lo
+        jump: ACCEPT
+
+    - name: allow lo OUTPUT
+      iptables:
+        action: insert
+        rule_num: 1
+        chain: OUTPUT
+        out_interface: lo
+        jump: ACCEPT
+
+    - name: allow ssh
+      iptables:
+        action: insert
+        rule_num: 2
+        chain: INPUT
+        protocol: tcp
+        destination_port: 22
+        match: conntrack
+        ctstate:
+          - NEW
+          - ESTABLISHED
+        jump: ACCEPT
+
+    - name: create user chain
+      command: iptables -N USER
+      ignore_errors: True
+
+    - name: add user chain
+      iptables:
+        action: insert
+        rule_num: 3
+        chain: INPUT
+        protocol: tcp
+        jump: USER
+
+    - name: allow established and related incoming
+      iptables:
+        action: insert
+        rule_num: 4
+        chain: INPUT
+        match: conntrack
+        ctstate:
+          - ESTABLISHED
+          - RELATED
+        jump: ACCEPT
+
+    - name: drop all
+      iptables:
+        action: insert
+        rule_num: 5
+        chain: INPUT
+        jump: DROP
+    
