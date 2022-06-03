@@ -1,0 +1,12 @@
+---
+- name: systemctl-enable-crio
+  shell: systemctl enable crio --now
+
+- name: modprobe-overlay
+  shell: modprobe overlay
+
+- name: modprobe-br_netfilter
+  shell: modprobe br_netfilter
+
+- name: sysctl-system
+  shell: sysctl --system

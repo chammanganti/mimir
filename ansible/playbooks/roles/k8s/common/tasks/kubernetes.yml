@@ -1,0 +1,39 @@
+---
+- name: remove k8s key
+  file:
+    path: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+    state: absent
+
+- name: add k8s key
+  shell:
+    cmd: curl -fsSLo /etc/apt/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+
+- name: delete repository
+  file:
+    path: /etc/apt/sources.list.d/kubernetes.list
+    state: absent
+
+- name: add repository
+  apt_repository:
+    filename: kubernetes
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+
+- name: install kube packages
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: hold kube packages
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl

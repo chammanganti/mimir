@@ -1,0 +1,68 @@
+---
+- name: create keyrings dir
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+
+- name: remove gpg key
+  file:
+    path: "/etc/apt/keyrings/{{ item }}"
+    state: absent
+  loop:
+    - libcontainers-archive-keyring.gpg
+    - libcontainers-crio-archive-keyring.gpg
+
+- name: delete repository
+  file:
+    path: "/etc/apt/sources.list.d/{{ item }}"
+    state: absent
+  loop:
+    - devel:kubic:libcontainers:stable.list
+    - devel:kubic:libcontainers:stable:cri-o:1.24.list
+
+- name: install deps
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gnupg
+    - lsb-release
+
+- name: install libseccomp2
+  apt:
+    name: libseccomp2
+    state: present
+
+- name: add libcontainers key
+  shell:
+    cmd: curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_20.04/Release.key | gpg --dearmor -o /etc/apt/keyrings/libcontainers-archive-keyring.gpg
+
+- name: add crio key
+  shell:
+    cmd: curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.24/xUbuntu_20.04/Release.key | gpg --dearmor -o /etc/apt/keyrings/libcontainers-crio-archive-keyring.gpg
+
+- name: add libcontainers repository
+  apt_repository:
+    filename: devel:kubic:libcontainers:stable
+    repo: deb [signed-by=/etc/apt/keyrings/libcontainers-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_20.04/ /
+    state: present
+
+- name: add crio repository
+  apt_repository:
+    filename: devel:kubic:libcontainers:stable:cri-o:1.24
+    repo: deb [signed-by=/etc/apt/keyrings/libcontainers-crio-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.24/xUbuntu_20.04/ /
+    state: present
+
+- name: install cri-o
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - cri-o
+    - cri-o-runc
+  notify: systemctl-enable-crio

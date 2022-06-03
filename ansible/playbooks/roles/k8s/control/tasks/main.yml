@@ -1,0 +1,21 @@
+---
+- name: initialize kubeadm
+  shell:
+    cmd: kubeadm init --apiserver-advertise-address="{{ apiserver_advertise_address }}" --pod-network-cidr=192.168.0.0/16
+
+- name: taint master
+  shell:
+    cmd: kubectl --kubeconfig /etc/kubernetes/admin.conf taint nodes --all node-role.kubernetes.io/master-
+
+- name: taint control-plane
+  shell:
+    cmd: kubectl --kubeconfig /etc/kubernetes/admin.conf taint nodes --all node-role.kubernetes.io/control-plane-
+
+- name: download calico
+  get_url:
+    url: https://projectcalico.docs.tigera.io/manifests/calico.yaml
+    dest: /tmp/calico.yaml
+
+- name: apply calico
+  shell:
+    cmd: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f /tmp/calico.yaml

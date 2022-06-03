@@ -1,0 +1,4 @@
+---
+- hosts: control
+  roles:
+    - k8s/control

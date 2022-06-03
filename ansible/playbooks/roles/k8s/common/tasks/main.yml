@@ -1,0 +1,5 @@
+---
+- include: swap.yml
+- include: crio.yml
+- include: iptables.yml
+- include: kubernetes.yml
