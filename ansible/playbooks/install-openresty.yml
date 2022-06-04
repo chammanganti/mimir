@@ -1,0 +1,136 @@
+---
+- name: install opensresty
+  hosts: all
+  vars:
+    - version: '1.21.4.1'
+  tasks:
+    - name: delete openresty
+      file:
+        path: /usr/local/openresty
+        state: absent
+
+    - name: delete logrotate
+      file:
+        path: /etc/logrotate.d/openresty
+        state: absent
+
+    - name: delete sysconfig
+      file:
+        path: /etc/sysconfig/openresty
+        state: absent
+
+    - name: delete legacy action
+      file:
+        path: /usr/libexec/initscripts/legacy-actions/openresty
+        state: absent
+
+    - name: delete systemd service
+      file:
+        path: /usr/lib/systemd/system/openresty.service
+        state: absent
+      notify:
+        - reload daemon
+
+    - name: install deps (Debian)
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - libpcre3-dev
+        - libssl-dev
+        - perl
+        - make
+        - build-essential
+        - curl
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: install deps (RedHat)
+      yum:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - pcre-devel
+        - openssl-devel
+        - perl
+        - gcc
+        - curl
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: delete tarball
+      file:
+        path: /tmp/openresty-{{ version }}.tar.gz
+        state: absent
+
+    - name: download and extract tarball
+      unarchive:
+        src: https://openresty.org/download/openresty-{{ version }}.tar.gz
+        dest: /tmp
+        remote_src: yes
+
+    - name: configure
+      shell:
+        chdir: /tmp/openresty-{{ version }}
+        cmd: ./configure -j2 --prefix=/etc/openresty
+
+    - name: compile
+      shell:
+        chdir: /tmp/openresty-{{ version }}
+        cmd: make -j2
+
+    - name: install
+      shell:
+        chdir: /tmp/openresty-{{ version }}
+        cmd: make install
+
+    - name: delete source
+      file:
+        path: /tmp/openresty-{{ version }}
+        state: absent
+
+    - name: add openresty to the path env
+      blockinfile:
+        dest: $HOME/.bashrc
+        block: |
+          export PATH=/etc/openresty/bin:/etc/openresty/nginx/sbin:$PATH
+        marker: "# {mark} ANSIBLE - openresty"
+        insertafter: EOF
+
+    - name: set up init script (RedHat)
+      unarchive:
+        src: https://raw.githubusercontent.com/ruo91/nginx_scripts/master/openresty/systemd_scripts/systemd.tar.gz
+        dest: /
+        remote_src: yes
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: update nginx conf path
+      replace:
+        path: /usr/lib/systemd/system/openresty.service
+        regexp: '/etc/openresty/nginx/nginx.conf'
+        replace: '/etc/openresty/nginx/conf/nginx.conf'
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: update nginx sbin path
+      replace:
+        path: /usr/lib/systemd/system/openresty.service
+        regexp: '/etc/openresty/sbin/nginx'
+        replace: '/etc/openresty/nginx/sbin/nginx'
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: update pid path
+      replace:
+        path: /usr/lib/systemd/system/openresty.service
+        regexp: '/etc/openresty/tmp/run/openresty.pid'
+        replace: '/etc/openresty/nginx/logs/nginx.pid'
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: remove systemd tarball
+      file:
+        path: /systemd.tar.gz
+        state: absent
+      when: ansible_facts['os_family'] == "RedHat"
+
+  handlers:
+    - name: reload daemon
+      shell: systemctl daemon-reload
