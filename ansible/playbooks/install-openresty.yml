@@ -72,7 +72,7 @@
     - name: configure
       shell:
         chdir: /tmp/openresty-{{ version }}
-        cmd: ./configure -j2 --prefix=/etc/openresty
+        cmd: ./configure -j2 --prefix=/etc/openresty --with-http_v2_module
 
     - name: compile
       shell:
