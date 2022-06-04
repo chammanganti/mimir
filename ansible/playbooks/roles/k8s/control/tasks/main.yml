@@ -19,3 +19,11 @@
 - name: apply calico
   shell:
     cmd: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f /tmp/calico.yaml
+
+- name: export kubeconfig
+  blockinfile:
+    dest: $HOME/.bashrc
+    block: |
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+    marker: "# {mark} ANSIBLE - kubeconfig"
+    insertafter: EOF
