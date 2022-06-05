@@ -6,7 +6,7 @@
   tasks:
     - name: delete openresty
       file:
-        path: /usr/local/openresty
+        path: /etc/openresty
         state: absent
 
     - name: delete logrotate
