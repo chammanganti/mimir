@@ -9,10 +9,17 @@
         path: /tmp/postgresql-{{ version }}.tar.gz
         state: absent
 
-    - name: delete data
+    - name: delete pgsql
       file:
-        path: /usr/local/pgsql/data
+        path: /usr/local/pgsql
         state: absent
+
+    - name: delete service file
+      file:
+        path: /etc/systemd/system/postgresql.service
+        state: absent
+      notify:
+        - reload daemon
 
     - name: install deps (Debian)
       apt:
@@ -112,3 +119,7 @@
 
           [Install]
           WantedBy=multi-user.target
+
+  handlers:
+    - name: reload daemon
+      shell: systemctl daemon-reload
