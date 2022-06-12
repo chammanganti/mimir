@@ -1,0 +1,114 @@
+---
+- name: install pgsql
+  hosts: all
+  vars:
+    - version: '14.3'
+  tasks:
+    - name: delete tarball
+      file:
+        path: /tmp/postgresql-{{ version }}.tar.gz
+        state: absent
+
+    - name: delete data
+      file:
+        path: /usr/local/pgsql/data
+        state: absent
+
+    - name: install deps (Debian)
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - libssl-dev
+        - make
+        - build-essential
+        - curl
+        - libreadline-dev
+        - zlib1g-dev
+        - flex
+        - bison
+        - libxml2-dev
+        - libxslt-dev
+        - libxml2-utils
+        - xsltproc
+        - perl
+        - libsystemd-dev
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: download and extract tarball
+      unarchive:
+        src: https://ftp.postgresql.org/pub/source/v{{ version }}/postgresql-{{ version }}.tar.gz
+        dest: /tmp
+        remote_src: yes
+
+    - name: configure
+      shell:
+        chdir: /tmp/postgresql-{{ version }}
+        cmd: ./configure --with-ssl=openssl --with-systemd
+
+    - name: build
+      shell:
+        chdir: /tmp/postgresql-{{ version }}
+        cmd: make -j2
+
+    - name: install
+      shell:
+        chdir: /tmp/postgresql-{{ version }}
+        cmd: make install
+
+    - name: delete source
+      file:
+        path: /tmp/postgresql-{{ version }}
+        state: absent
+
+    - name: create postgres user
+      user:
+        name: postgres
+        shell: /usr/bin/bash
+
+    - name: create data dir
+      file:
+        path: /usr/local/pgsql/data
+        state: directory
+        owner: postgres
+        group: postgres
+
+    - name: add pgsql to the path env
+      blockinfile:
+        dest: $HOME/.bashrc
+        block: |
+          export PATH=/usr/local/pgsql/bin:$PATH
+        marker: "# {mark} ANSIBLE - pgsql"
+        insertafter: EOF
+      become: yes
+      become_user: postgres
+
+    - name: init db
+      shell:
+        cmd: /usr/local/pgsql/bin/initdb --pgdata=/usr/local/pgsql/data/pgdata
+      become: yes
+      become_user: postgres
+      args:
+        executable: /usr/bin/bash
+
+    - name: create service file
+      blockinfile:
+        path: /etc/systemd/system/postgresql.service
+        create: yes
+        block: |
+          [Unit]
+          Description=PostgreSQL database server
+          Documentation=man:postgres(1)
+
+          [Service]
+          Type=notify
+          User=postgres
+          ExecStart=/usr/local/pgsql/bin/postgres -D /usr/local/pgsql/data/pgdata
+          ExecReload=/bin/kill -HUP $MAINPID
+          KillMode=mixed
+          KillSignal=SIGINT
+          TimeoutSec=infinity
+
+          [Install]
+          WantedBy=multi-user.target
